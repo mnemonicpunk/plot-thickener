@@ -6,6 +6,8 @@
 			padding: 0;
 			margin: 0;
 			background: #333;
+
+			font-family: Segoe UI, Arial;
 		}
 
 		#plot {
@@ -22,6 +24,15 @@
 			height: 20px;
 			line-height: 20px;
 			background: #444;
+		}
+
+		#data_source {
+			color: #fff;
+			float: right;
+		}
+
+		#data_source a {
+			color: #aaa;
 		}
 	</style>
 	<script type="text/javascript">
@@ -202,7 +213,7 @@
 				let canvas = document.querySelector('#plot');
 				let ctx = canvas.getContext('2d');
 
-				ctx.font = "12px Arial";
+				ctx.font = "12px Segoe UI, Arial";
 				ctx.fillText(txt, x, y);
 			}
 		}
@@ -273,7 +284,8 @@
 </head>
 <body>
 	<div id="selector">
-		<select id="country_select"></select>
+		<select id="country_select"></select> 
+		<div id="data_source">Made by <a href="https://twitter.com/mnemonicPunk">@mnemonicpunk</a>, data provided by <a href="https://github.com/pomber/covid19">https://github.com/pomber/covid19</a></div>
 	</div>
 	<canvas id="plot"></canvas>
 </body>
