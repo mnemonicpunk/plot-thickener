@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<style type="text/css">
+		body {
+			padding: 0;
+			margin: 0;
+			background: #333;
+		}
+
+		#plot {
+			position: absolute;
+			top: 60px;
+			left: 0px;
+			width: 100%;
+			height: calc(100% - 60px);
+		}
+
+		#selector {
+			padding: 20px;
+			width: calc(100% - 40px);
+			height: 20px;
+			line-height: 20px;
+			background: #444;
+		}
+	</style>
+	<script type="text/javascript">
+		const PREDICT_DAYS = 7;
+		const COL = {
+			AVG: '#fff',
+			BEST: '#4a4',
+			WORST: '#a44',
+			LABEL: '#aaa'
+		}
+
+		class Predictor {
+			constructor(in_data) {
+				this.data = in_data;
+				this.average_delta = 1;
+				this.next_week = [];
+				this.values = [];
+				this.best_values = [];
+				this.worst_values = [];
+				this.highest_delta = 1;
+				this.lowest_delta = 200;
+				this.label = "";
+
+				this.calc();
+
+				var _Instance = this;
+				window.addEventListener('resize', function() {
+					_Instance.resize();
+				});
+				this.resize();
+			}
+			setData(data, label) {
+				this.data = data;
+
+				this.average_delta = 1;
+				this.next_week = [];
+				this.values = [];
+				this.best_values = [];
+				this.worst_values = [];
+				this.highest_delta = 1;
+				this.lowest_delta = 200;
+				this.label = label;
+
+				this.calc();
+
+				var _Instance = this;
+				window.requestAnimationFrame(function() {
+					_Instance.draw();
+				});
+			}
+			resize() {
+				let canvas = document.querySelector('#plot');
+				canvas.width = canvas.clientWidth;
+				canvas.height = canvas.clientHeight;
+
+				this.draw();
+			}
+			calc() {
+				let avg = 0;
+				let averages = [];
+
+				if (this.data == undefined) { return; }
+
+				for (let i=1; i<this.data.length; i++) {
+					avg += this.data[i] / this.data[i-1];
+
+					let next_avg = this.data[i] / this.data[i-1]; 
+					
+					if (this.highest_delta < next_avg) { this.highest_delta = next_avg };
+					if (this.lowest_delta > next_avg) { this.lowest_delta = next_avg };
+
+					averages.push(next_avg);
+
+					console.log()
+				}
+				avg = avg/(this.data.length-1);
+				console.log(avg);
+
+				this.values = this.extrapolate(this.data, avg);
+				this.best_values = this.extrapolate(this.data, this.lowest_delta);
+				this.worst_values = this.extrapolate(this.data, this.highest_delta);
+
+				console.dir(this.values);
+			}
+			extrapolate(data, factor) {
+				let d = [];
+
+				for (let i=0; i<data.length; i++) {
+					d.push(data[i]);
+				}
+
+				let next_val = data[data.length-1];
+				for (let i=0; i<PREDICT_DAYS; i++) {
+					next_val = Math.floor(next_val * factor);
+					d.push(next_val);
+				}
+
+				return d;
+			}
+			draw() {
+				let canvas = document.querySelector('#plot');
+				let ctx = canvas.getContext('2d');
+
+				if (this.data == undefined) { return; }
+
+				let w = canvas.clientWidth;
+				let h = canvas.clientHeight;
+
+				ctx.clearStyle = "#000";
+				ctx.clearRect(0, 0, w, h);
+
+				let p = {
+					x: 40,
+					y: 40,
+					width: w-80,
+					height: h-80
+				};
+
+				let highest = this.getHighestValue();
+
+				let unit_len = (p.width/this.values.length);
+
+				ctx.strokeStyle = COL.LABEL;
+				ctx.fillStyle = COL.LABEL;
+				ctx.beginPath();
+				ctx.moveTo(p.x + (this.data.length-1) * unit_len, p.y);
+				ctx.lineTo(p.x + (this.data.length-1) * unit_len, p.y+p.height);
+				ctx.stroke();
+
+				this.annotate(this.label, p.x + (this.data.length-1) * unit_len, 20);
+
+				this.plot(this.worst_values, highest, COL.WORST, false);
+				this.plot(this.best_values, highest, COL.BEST, false);
+				this.plot(this.values, highest, COL.AVG, true);
+			}
+			getHighestValue() {
+				let h = 0;
+				for (let i=0; i<this.values.length; i++) {
+					if (h < this.values[i]) { h = this.values[i]; }
+					if (h < this.best_values[i]) { h = this.best_values[i]; }
+					if (h < this.worst_values[i]) { h = this.worst_values[i]; }
+				}
+				return h;
+			}
+			plot(data, highest, col, annotate) {
+				let canvas = document.querySelector('#plot');
+				let ctx = canvas.getContext('2d');
+
+				let w = canvas.clientWidth;
+				let h = canvas.clientHeight;
+
+				let p = {
+					x: 40,
+					y: 40,
+					width: w-80,
+					height: h-80
+				};
+
+				ctx.strokeStyle = col;
+				ctx.fillStyle = col;
+				ctx.beginPath();
+				ctx.moveTo(p.x, p.y + p.height - (p.height * data[0]/highest));
+				for (let i=0; i<data.length; i++) {
+					let c = {
+						x: p.x + i*(p.width/data.length),
+						y: p.y + p.height - (p.height * data[i]/highest)
+					}
+
+					ctx.lineTo(c.x, c.y);
+					if((annotate == true) || (i == data.length-1)) {
+						this.annotate(data[i], c.x, c.y-20);	
+					}
+					
+				}
+				ctx.stroke();
+			}
+			annotate(txt, x, y) {
+				let canvas = document.querySelector('#plot');
+				let ctx = canvas.getContext('2d');
+
+				ctx.font = "12px Arial";
+				ctx.fillText(txt, x, y);
+			}
+		}
+
+		class UI {
+			constructor() {
+				var _Instance = this;
+				this.data = {};
+
+				this.p = new Predictor();
+				this.select = document.querySelector("#country_select");
+				this.select.addEventListener('change', function(e) {
+					_Instance.setCountry(e.target.value);
+				});
+
+				fetch("https://pomber.github.io/covid19/timeseries.json")
+				  .then(response => response.json())
+				  .then(data => {
+				    _Instance.setData(data);
+
+  				});
+			}
+			setCountry(c) {
+				let d = this.data[c];
+				let d_sliced = d.slice(d.length-7);
+				console.dir(d_sliced);
+				let data = [];
+
+				for (let i=0; i<d_sliced.length; i++) {
+					data.push(d_sliced[i].confirmed);
+				}
+
+				this.p.setData(data, d_sliced[d_sliced.length-1].date);
+
+				localStorage.last_choice = c;
+			}
+			setData(data) {
+				this.data = data;
+				console.dir(this.data);
+				
+				let default_choice = localStorage.last_choice || "Germany";
+				let default_index = -1;
+				let running_index = 0;
+
+				console.log(this.data.length)
+
+			    let s = document.querySelector("#country_select");
+			    for (let n in this.data) {
+			    	let o = document.createElement('option');
+			    	o.text = n;
+			    	s.appendChild(o);
+			    	if (n == default_choice) {
+			    		default_index = running_index;
+			    	}
+			    	running_index++;
+			    }
+			    s.selectedIndex = default_index;
+
+			    this.setCountry(default_choice);
+			}
+		}
+
+		window.addEventListener('load', function() {
+			var ui = new UI();
+		});
+	</script>
+	<title></title>
+</head>
+<body>
+	<div id="selector">
+		<select id="country_select"></select>
+	</div>
+	<canvas id="plot"></canvas>
+</body>
+</html>
