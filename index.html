@@ -41,7 +41,8 @@
 			AVG: '#fff',
 			BEST: '#4a4',
 			WORST: '#a44',
-			LABEL: '#aaa'
+			LABEL: '#aaa',
+			LINE: '#666'
 		}
 
 		class Predictor {
@@ -54,7 +55,7 @@
 				this.worst_values = [];
 				this.highest_delta = 1;
 				this.lowest_delta = 200;
-				this.label = "";
+				this.labels = [];
 
 				this.calc();
 
@@ -64,7 +65,7 @@
 				});
 				this.resize();
 			}
-			setData(data, label) {
+			setData(data, labels) {
 				this.data = data;
 
 				this.average_delta = 1;
@@ -74,7 +75,7 @@
 				this.worst_values = [];
 				this.highest_delta = 1;
 				this.lowest_delta = 200;
-				this.label = label;
+				this.labels = labels;
 
 				this.calc();
 
@@ -109,13 +110,9 @@
 					console.log()
 				}
 				avg = avg/(this.data.length-1);
-				console.log(avg);
-
 				this.values = this.extrapolate(this.data, avg);
 				this.best_values = this.extrapolate(this.data, this.lowest_delta);
 				this.worst_values = this.extrapolate(this.data, this.highest_delta);
-
-				console.dir(this.values);
 			}
 			extrapolate(data, factor) {
 				let d = [];
@@ -155,14 +152,35 @@
 
 				let unit_len = (p.width/this.values.length);
 
-				ctx.strokeStyle = COL.LABEL;
-				ctx.fillStyle = COL.LABEL;
-				ctx.beginPath();
-				ctx.moveTo(p.x + (this.data.length-1) * unit_len, p.y);
-				ctx.lineTo(p.x + (this.data.length-1) * unit_len, p.y+p.height);
-				ctx.stroke();
+				ctx.strokeStyle = COL.LINE;
+				ctx.fillStyle = COL.LINE;
 
-				this.annotate(this.label, p.x + (this.data.length-1) * unit_len, 20);
+				for (let i=0; i<this.values.length; i++) {
+					ctx.beginPath();
+					ctx.moveTo(p.x + i * unit_len, p.y);
+					ctx.lineTo(p.x + i * unit_len, p.y+p.height);
+					ctx.stroke();
+
+					if (this.labels[i] != undefined) {
+						let date = new Date(Date.parse(this.labels[i]));
+						let date_string = (date.getDate()) + "." + (date.getMonth() + 1) + "." + (date.getFullYear());
+
+						this.annotate(date_string, p.x + i * unit_len, p.y+p.height+20);	
+					} else {
+						let date = new Date(Date.parse(this.labels[this.labels.length-1]));
+						date.setDate(date.getDate() + (i - (this.labels.length-1)));
+
+						let date_string = (date.getDate()) + "." + (date.getMonth() + 1) + "." + (date.getFullYear());
+
+						this.annotate(date_string, p.x + i * unit_len, p.y+p.height+20);	
+					}
+					
+				}
+
+				ctx.beginPath();
+				ctx.moveTo(p.x, p.y+p.height);
+				ctx.lineTo(p.x+p.width-unit_len, p.y+p.height);
+				ctx.stroke();
 
 				this.plot(this.worst_values, highest, COL.WORST, false);
 				this.plot(this.best_values, highest, COL.BEST, false);
@@ -203,7 +221,7 @@
 
 					ctx.lineTo(c.x, c.y);
 					if((annotate == true) || (i == data.length-1)) {
-						this.annotate(data[i], c.x, c.y-20);	
+						this.annotate(data[i], c.x + 10, c.y-10);	
 					}
 					
 				}
@@ -239,36 +257,33 @@
 			setCountry(c) {
 				let d = this.data[c];
 				let d_sliced = d.slice(d.length-7);
-				console.dir(d_sliced);
 				let data = [];
+				let labels = [];
 
 				for (let i=0; i<d_sliced.length; i++) {
 					data.push(d_sliced[i].confirmed);
+					labels.push(d_sliced[i].date);
 				}
 
-				this.p.setData(data, d_sliced[d_sliced.length-1].date);
+				this.p.setData(data, labels);
 
 				localStorage.last_choice = c;
 			}
 			setData(data) {
 				this.data = data;
-				console.dir(this.data);
 				
 				let default_choice = localStorage.last_choice || "Germany";
 				let default_index = -1;
-				let running_index = 0;
-
-				console.log(this.data.length)
-
 			    let s = document.querySelector("#country_select");
-			    for (let n in this.data) {
+			    let countries = Object.keys(this.data).sort();
+
+			    for (var i=0; i<countries.length; i++) {
 			    	let o = document.createElement('option');
-			    	o.text = n;
+			    	o.text = countries[i];
 			    	s.appendChild(o);
-			    	if (n == default_choice) {
-			    		default_index = running_index;
+			    	if (countries[i] == default_choice) {
+			    		default_index = i;
 			    	}
-			    	running_index++;
 			    }
 			    s.selectedIndex = default_index;
 
