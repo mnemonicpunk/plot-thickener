@@ -113,10 +113,15 @@
 				if (this.data == undefined) { return; }
 
 				for (let i=1; i<this.data.length; i++) {
-					let prev = this.data[i-1] || 1;
+					let prev = this.data[i-1];
 					let current = this.data[i];
 
 					let next_avg = current / prev; 
+
+					if ((prev == undefined) || (prev == 0)) {
+						next_avg = current;
+					}
+
 					avg += next_avg;
 					console.log(i + ": " + next_avg);
 					
