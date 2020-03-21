@@ -34,9 +34,14 @@
 		#data_source a {
 			color: #aaa;
 		}
+
+		#toggles {
+			color: #aaa;
+		}
 	</style>
 	<script type="text/javascript">
 		const PREDICT_DAYS = 7;
+		const VALUE_CAP = 9000000000;
 		const COL = {
 			AVG: '#fff',
 			BEST: '#4a4',
@@ -49,7 +54,6 @@
 			constructor(in_data) {
 				this.data = in_data;
 				this.average_delta = 1;
-				this.next_week = [];
 				this.values = [];
 				this.best_values = [];
 				this.worst_values = [];
@@ -69,7 +73,6 @@
 				this.data = data;
 
 				this.average_delta = 1;
-				this.next_week = [];
 				this.values = [];
 				this.best_values = [];
 				this.worst_values = [];
@@ -77,12 +80,24 @@
 				this.lowest_delta = 200;
 				this.labels = labels;
 
+				this.update();
+			}
+			setBest(state) {
+				this.best_active = state;
+				this.update();
+			}
+			setWorst(state) {
+				this.worst_active = state;
+				this.update();
+			}			
+			update() {
 				this.calc();
 
 				var _Instance = this;
 				window.requestAnimationFrame(function() {
 					_Instance.draw();
 				});
+
 			}
 			resize() {
 				let canvas = document.querySelector('#plot');
@@ -93,7 +108,7 @@
 			}
 			calc() {
 				let avg = 0;
-				let averages = [];
+				let zeroes = 0;
 
 				if (this.data == undefined) { return; }
 
@@ -105,11 +120,11 @@
 					if (this.highest_delta < next_avg) { this.highest_delta = next_avg };
 					if (this.lowest_delta > next_avg) { this.lowest_delta = next_avg };
 
-					averages.push(next_avg);
+					if (next_avg <= 0) { zeroes++; }
 
 					console.log()
 				}
-				avg = avg/(this.data.length-1);
+				avg = avg/(this.data.length - 1 - zeroes);
 				this.values = this.extrapolate(this.data, avg);
 				this.best_values = this.extrapolate(this.data, this.lowest_delta);
 				this.worst_values = this.extrapolate(this.data, this.highest_delta);
@@ -124,6 +139,9 @@
 				let next_val = data[data.length-1];
 				for (let i=0; i<PREDICT_DAYS; i++) {
 					next_val = Math.floor(next_val * factor);
+
+					if (next_val > VALUE_CAP) { next_val = VALUE_CAP; }
+
 					d.push(next_val);
 				}
 
@@ -132,6 +150,9 @@
 			draw() {
 				let canvas = document.querySelector('#plot');
 				let ctx = canvas.getContext('2d');
+
+				let best_active = this.best_active;
+				let worst_active = this.worst_active;
 
 				if (this.data == undefined) { return; }
 
@@ -148,7 +169,8 @@
 					height: h-80
 				};
 
-				let highest = this.getHighestValue();
+				let highest = this.getHighestValue(best_active, worst_active);
+				let lowest = this.getLowestValue(best_active, worst_active);
 
 				let unit_len = (p.width/this.values.length);
 
@@ -182,22 +204,45 @@
 				ctx.lineTo(p.x+p.width-unit_len, p.y+p.height);
 				ctx.stroke();
 
-				this.plot(this.worst_values, highest, COL.WORST, false);
-				this.plot(this.best_values, highest, COL.BEST, false);
-				this.plot(this.values, highest, COL.AVG, true);
+				if (worst_active) {
+					this.plot(this.worst_values, highest, lowest, COL.WORST, false);	
+				}
+				if (best_active) {
+					this.plot(this.best_values, highest, lowest, COL.BEST, false);
+				}
+				this.plot(this.values, highest, lowest, COL.AVG, true);
 			}
-			getHighestValue() {
+			getHighestValue(best_active, worst_active) {
 				let h = 0;
 				for (let i=0; i<this.values.length; i++) {
 					if (h < this.values[i]) { h = this.values[i]; }
-					if (h < this.best_values[i]) { h = this.best_values[i]; }
-					if (h < this.worst_values[i]) { h = this.worst_values[i]; }
+					if (best_active) {
+						if (h < this.best_values[i]) { h = this.best_values[i]; }	
+					}
+					if (worst_active) {
+						if (h < this.worst_values[i]) { h = this.worst_values[i]; }	
+					}
 				}
 				return h;
 			}
-			plot(data, highest, col, annotate) {
+			getLowestValue(best_active, worst_active) {
+				let h = VALUE_CAP;
+				for (let i=0; i<this.values.length; i++) {
+					if (h > this.values[i]) { h = this.values[i]; }
+					if (best_active) {
+						if (h > this.best_values[i]) { h = this.best_values[i]; }	
+					}
+					if (worst_active) {
+						if (h > this.worst_values[i]) { h = this.worst_values[i]; }	
+					}
+				}
+				return h;
+			}
+			plot(data, highest, lowest, col, annotate) {
 				let canvas = document.querySelector('#plot');
 				let ctx = canvas.getContext('2d');
+
+				let floor = lowest;
 
 				let w = canvas.clientWidth;
 				let h = canvas.clientHeight;
@@ -212,11 +257,11 @@
 				ctx.strokeStyle = col;
 				ctx.fillStyle = col;
 				ctx.beginPath();
-				ctx.moveTo(p.x, p.y + p.height - (p.height * data[0]/highest));
+				ctx.moveTo(p.x, p.y + p.height - (p.height * (data[0]-floor)/highest));
 				for (let i=0; i<data.length; i++) {
 					let c = {
 						x: p.x + i*(p.width/data.length),
-						y: p.y + p.height - (p.height * data[i]/highest)
+						y: p.y + p.height - (p.height * (data[i]-floor)/highest)
 					}
 
 					ctx.lineTo(c.x, c.y);
@@ -253,6 +298,19 @@
 				    _Instance.setData(data);
 
   				});
+
+				this.best_toggle = document.querySelector("#best_toggle");
+				this.worst_toggle = document.querySelector("#worst_toggle");
+
+				this.best_toggle.addEventListener('click', function(e) {
+					_Instance.setBest(e.target.checked?"on":"off");
+				});
+				this.worst_toggle.addEventListener('click', function(e) {
+					_Instance.setWorst(e.target.checked?"on":"off");
+				});
+
+				this.setBest(localStorage.best_active=="on"?"on":"off");
+				this.setWorst(localStorage.worst_active=="on"?"on":"off");
 			}
 			setCountry(c) {
 				let d = this.data[c];
@@ -289,6 +347,21 @@
 
 			    this.setCountry(default_choice);
 			}
+			setBest(state) {
+				localStorage.best_active = state;
+
+				state = state=="on"?true:false;
+				this.best_toggle.checked = state;
+				this.p.setBest(state);
+			}
+			setWorst(state) {
+				localStorage.worst_active = state;
+
+				state = state=="on"?true:false;
+				this.worst_toggle.checked = state;
+				this.p.setWorst(state);
+			}
+
 		}
 
 		window.addEventListener('load', function() {
@@ -299,7 +372,7 @@
 </head>
 <body>
 	<div id="selector">
-		<select id="country_select"></select> 
+		<select id="country_select"></select><span id="toggles"><input id="best_toggle" type="checkbox"> Show Best Case <input id="worst_toggle" type="checkbox"> Show Worst Case</span>
 		<div id="data_source">Made by <a href="https://twitter.com/mnemonicPunk">@mnemonicpunk</a>, data provided by <a href="https://github.com/pomber/covid19">https://github.com/pomber/covid19</a></div>
 	</div>
 	<canvas id="plot"></canvas>
