@@ -351,9 +351,9 @@
 				localStorage.last_choice = c;
 			}
 			setData(data) {
-				this.data = data;
+				this.data = this.synthesizeWorld(data);
 				
-				let default_choice = localStorage.last_choice || "Germany";
+				let default_choice = localStorage.last_choice || "World";
 				let default_index = -1;
 			    let s = document.querySelector("#country_select");
 			    let countries = Object.keys(this.data).sort();
@@ -369,6 +369,28 @@
 			    s.selectedIndex = default_index;
 
 			    this.setCountry(default_choice);
+			}
+			synthesizeWorld(data) {
+				let d = data;
+				let w = [];
+
+				for (let i=0; i<data['Germany'].length; i++) {
+					w.push({
+						date: d['Germany'][i].date,
+						confirmed: 0,
+						deaths: 0,
+						recovered: 0
+					});
+				}
+				for (let n in data) {
+					for (let i=0; i<data[n].length; i++) {
+						w[i].confirmed += d[n][i].confirmed;
+						w[i].deaths += d[n][i].deaths;
+						w[i].recovered += d[n][i].recovered;
+					}
+				}
+				d['World'] = w;
+				return d;
 			}
 			setBest(state) {
 				localStorage.best_active = state;
