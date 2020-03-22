@@ -250,6 +250,8 @@
 				let ctx = canvas.getContext('2d');
 
 				let floor = lowest;
+				let delta = highest-floor;
+				if (delta == 0) { delta = 1; }
 
 				let w = canvas.clientWidth;
 				let h = canvas.clientHeight;
@@ -264,11 +266,11 @@
 				ctx.strokeStyle = col;
 				ctx.fillStyle = col;
 				ctx.beginPath();
-				ctx.moveTo(p.x, p.y + p.height - (p.height * (data[0]-floor)/highest));
+				ctx.moveTo(p.x, p.y + p.height - (p.height * (data[0]-floor)/delta));
 				for (let i=0; i<data.length; i++) {
 					let c = {
 						x: p.x + i*(p.width/data.length),
-						y: p.y + p.height - (p.height * (data[i]-floor)/highest)
+						y: p.y + p.height - (p.height * (data[i]-floor)/delta)
 					}
 
 					ctx.lineTo(c.x, c.y);
