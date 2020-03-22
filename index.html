@@ -275,7 +275,21 @@
 
 					ctx.lineTo(c.x, c.y);
 					if((annotate == true) || (i == data.length-1)) {
-						this.annotate(data[i], c.x + 10, c.y-10);	
+						let tx = c.x + 10;
+						let ty = c.y + 10;
+
+						ctx.strokeStyle = "#000";
+						ctx.fillStyle = "#000";
+
+						this.annotate(data[i], tx-1, ty);
+						this.annotate(data[i], tx+1, ty);	
+						this.annotate(data[i], tx, ty-1);	
+						this.annotate(data[i], tx, ty+1);	
+
+						ctx.strokeStyle = col;
+						ctx.fillStyle = col;
+
+						this.annotate(data[i], tx, ty);	
 					}
 					
 				}
